@@ -1,2 +1,0 @@
-﻿image,status,error,result_image,pixels_per_cm,length_px,width_px,length_cm,width_cm,area_cm2,perimeter_cm
-data\demo.png,ok,,results\demo.png\result.png,20.0,578.606079,151.088028,28.930304,7.554401,162.01625,73.227774
