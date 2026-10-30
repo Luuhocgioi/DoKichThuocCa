@@ -4,6 +4,7 @@
 - Trạng thái ban đầu: **Chưa bắt đầu**.
 - Trạng thái hiện tại: **Hoàn thành bản triển khai giai đoạn 1; chờ kiểm chứng trên ảnh cá thật**.
 - Cập nhật cùng ngày: đã bổ sung giao diện Streamlit tải ảnh theo yêu cầu mới.
+- Kiểm tra file theo yêu cầu người dùng: mã nguồn, tài liệu, kiểm thử và data/demo.png còn đầy đủ; các kết quả demo/batch sinh ra trong phiên trước hiện không còn trong results/.
 
 ## Đã hoàn thành
 - [x] Lưu nguyên nội dung yêu cầu vào PROMPT.md.
@@ -50,6 +51,7 @@ Không có thay đổi mã nguồn đang làm dở. Chưa có dữ liệu để 
 - `git diff --check`: không có lỗi whitespace.
 - Streamlit 1.58.0 đã có trên máy. AppTest kiểm tra demo, ảnh tải lên (giả lập file uploader), thiếu hiệu chỉnh, tham chiếu trùng điểm, ROI nhỏ và ảnh hỏng.
 - Khởi động máy chủ Streamlit trên 127.0.0.1:8501; có thể chạy lại bằng `python -m streamlit run app.py`.
+- Kiểm kê file sau khi đồng bộ Git: trước khi ghi mục này, working tree sạch; `git ls-files --deleted` rỗng. Không thiếu file được Git theo dõi so với HEAD. results/ hiện chỉ có .gitkeep và hai log Streamlit; ảnh demo kết quả, CSV, ảnh debug và batch_validation từng tạo đã không còn. Các tệp này bị .gitignore loại khỏi Git, có thể tạo lại; chưa xác định thao tác nào đã làm chúng biến mất. Không tự tái tạo trong phiên kiểm kê để giữ nguyên bằng chứng hiện trạng.
 
 ## Vấn đề còn tồn đọng
 - Rà soát theo câu hỏi độ tin cậy: 7/7 kiểm thử vẫn đạt nhưng chỉ xác nhận hình học tổng hợp và luồng giao diện, không chứng minh độ chính xác trên cá thật.
