@@ -97,6 +97,7 @@ def main():
             morph = st.select_slider("Lọc hình thái (1 = tắt)", [1, 3, 5, 7, 9], value=3)
             clahe = st.checkbox("Tăng tương phản CLAHE")
             min_area = st.number_input("Diện tích tối thiểu (pixel²)", min_value=1, value=100)
+            auto_filter_ruler = st.checkbox("Tự động loại bỏ thước kẻ dính liền", value=True, help="Tự động phát hiện và ngắt dải thước kẻ dính vào thân cá")
             allow_border = st.checkbox("Cho phép cá chạm viền ảnh", value=True, help="Bật nếu đuôi hoặc mõm cá nằm sát mép ảnh/ROI")
         show_debug = st.checkbox("Xem ảnh trung gian", value=True)
 
@@ -122,7 +123,7 @@ def main():
 
     crop = image[y0:y1, x0:x1]
     gray, stages = preprocess(crop, blur, clahe)
-    mask, segment_stages = segment_fish(gray, foreground, morph)
+    mask, segment_stages = segment_fish(gray, foreground, morph, auto_filter_ruler=auto_filter_ruler)
     stages.update(segment_stages)
     with right:
         st.subheader("Phân đoạn cá")

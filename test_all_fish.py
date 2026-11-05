@@ -161,7 +161,7 @@ def run_evaluation(args):
         try:
             # Chạy pipeline xử lý ảnh
             gray, _ = preprocess(img, blur_size=args.blur, clahe=args.clahe)
-            mask, _ = segment_fish(gray, foreground=args.foreground, morph_size=args.morph)
+            mask, _ = segment_fish(gray, foreground=args.foreground, morph_size=args.morph, auto_filter_ruler=not args.no_auto_ruler)
             contour = find_contour_flexible(mask, min_area=args.min_area, allow_border=not args.strict)
 
             # Đo kích thước hình học
@@ -280,6 +280,7 @@ def main():
     parser.add_argument("--limit", type=int, default=None, help="Giới hạn số ảnh kiểm tra (mặc định: kiểm tra hết)")
     parser.add_argument("--gt-only", action="store_true", help="Chỉ kiểm tra các ảnh có sẵn Ground Truth")
     parser.add_argument("--save-viz", action="store_true", help="Lưu ảnh đối chiếu trực quan (Ảnh + Dự đoán + Ground Truth)")
+    parser.add_argument("--no-auto-ruler", action="store_true", help="Tắt tính năng tự động loại thước kẻ")
     parser.add_argument("--strict", action="store_true", help="Bắt buộc không được chạm viền (mặc định: linh hoạt)")
     parser.add_argument("--foreground", default="auto", choices=["auto", "dark", "light"], help="Cực tính cá so với nền")
     parser.add_argument("--blur", type=int, default=5, help="Kích thước Gaussian blur (mặc định: 5)")

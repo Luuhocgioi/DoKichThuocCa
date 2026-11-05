@@ -44,17 +44,55 @@ def preprocess(image, blur_size=5, clahe=False):
     return blurred, {"01_gray": gray, "02_contrast": enhanced, "03_blur": blurred}
 
 
-def segment_fish(gray, foreground="auto", morph_size=3):
-    """Otsu tách sáng/tối; chế độ auto coi đa số viền ảnh là nền."""
+def segment_fish(gray, foreground="auto", morph_size=3, auto_filter_ruler=False):
+    """Otsu tách sáng/tối; tự động nhận diện cực tính và tùy chọn lọc thước kẻ."""
     _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     border = np.concatenate((mask[0], mask[-1], mask[:, 0], mask[:, -1]))
-    if foreground == "dark" or (foreground == "auto" and np.mean(border) > 127):
+    h, w = gray.shape
+    center = gray[h // 4 : 3 * h // 4, w // 4 : 3 * w // 4]
+    is_dark = foreground == "dark" or (
+        foreground == "auto" and (np.mean(border) > 70 or center.mean() < gray.mean())
+    )
+    if is_dark:
         mask = cv2.bitwise_not(mask)
     raw = mask.copy()
     if morph_size > 1:
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_size, morph_size))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+    if auto_filter_ruler:
+        # Ngắt kết nối các cầu nối hẹp giữa thước và thân cá
+        k_disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+        opened = cv2.morphologyEx(mask, cv2.MORPH_OPEN, k_disc)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(opened)
+        if num_labels > 1:
+            best_label = 1
+            best_score = -1
+            for i in range(1, num_labels):
+                area = stats[i, cv2.CC_STAT_AREA]
+                comp_w = stats[i, cv2.CC_STAT_WIDTH]
+                comp_h = stats[i, cv2.CC_STAT_HEIGHT]
+                cx, cy = centroids[i]
+                aspect = comp_w / max(comp_h, 1)
+                # Bỏ qua dải thước kẻ có tỷ lệ dài/ngang lớn nằm ở mép
+                if aspect > 5.0 and comp_h < 50:
+                    continue
+                dist_y = abs(cy - h / 2.0) / (h / 2.0)
+                dist_x = abs(cx - w / 2.0) / (w / 2.0)
+                score = area * (1.0 - 0.4 * dist_y) * (1.0 - 0.2 * dist_x)
+                if score > best_score:
+                    best_score = score
+                    best_label = i
+
+            if best_score > 0:
+                seed = (labels == best_label).astype(np.uint8) * 255
+                k_rec = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+                seed_dilated = cv2.dilate(seed, k_rec)
+                mask = cv2.bitwise_and(mask, seed_dilated)
+                k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+                mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_close)
+
     return mask, {"04_threshold": raw, "05_morphology": mask}
 
 
@@ -172,7 +210,7 @@ def process_image(path, args, output_dir):
         raise ValueError("ROI không hợp lệ hoặc nằm ngoài ảnh.")
     crop = image[y:y + h, x:x + w]
     gray, stages = preprocess(crop, args.blur, args.clahe)
-    mask, segment_stages = segment_fish(gray, args.foreground, args.morph)
+    mask, segment_stages = segment_fish(gray, args.foreground, args.morph, getattr(args, 'auto_filter_ruler', False))
     stages.update(segment_stages)
     if args.debug:
         save_image(output_dir / "debug" / "00_roi.png", crop)
@@ -211,6 +249,7 @@ def main():
     parser.add_argument("--blur", type=int, default=5, help="Kernel Gaussian lẻ; 1 = tắt")
     parser.add_argument("--morph", type=int, default=3, help="Kernel morphology lẻ; 1 = tắt")
     parser.add_argument("--clahe", action="store_true", help="Bật cân bằng tương phản cục bộ")
+    parser.add_argument("--auto-filter-ruler", action="store_true", help="Tự động loại bỏ thước kẻ dính vào thân cá")
     parser.add_argument("--allow-border", action="store_true", help="Cho phép contour chạm viền ảnh")
     parser.add_argument("--min-area", type=float, default=100, help="Diện tích nhỏ nhất (pixel vuông)")
     parser.add_argument("--debug", action="store_true", help="Lưu ảnh trung gian")
