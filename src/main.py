@@ -40,15 +40,19 @@ def preprocess(image, blur_size=5, clahe=False, filter_type="gaussian"):
     """Chuyển xám, tùy chọn CLAHE, rồi lọc làm mịn (Gaussian hoặc Median) để giảm nhiễu."""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     enhanced = cv2.createCLAHE(2.0, (8, 8)).apply(gray) if clahe else gray.copy()
+    filter_mode = str(filter_type).lower()
     if blur_size > 1:
         k = blur_size if blur_size % 2 == 1 else blur_size + 1
-        if str(filter_type).lower() == "median":
+        if filter_mode == "median":
             blurred = cv2.medianBlur(enhanced, k)
+            blur_key = "03_median_blur"
         else:
             blurred = cv2.GaussianBlur(enhanced, (k, k), 0)
+            blur_key = "03_gaussian_blur"
     else:
         blurred = enhanced.copy()
-    return blurred, {"01_gray": gray, "02_contrast": enhanced, "03_blur": blurred}
+        blur_key = "03_no_blur"
+    return blurred, {"01_gray": gray, "02_contrast": enhanced, blur_key: blurred}
 
 
 def segment_fish(gray, foreground="auto", morph_size=3, auto_filter_ruler=False, method="multi_otsu"):
@@ -62,19 +66,24 @@ def segment_fish(gray, foreground="auto", morph_size=3, auto_filter_ruler=False,
     )
     if is_dark:
         mask = cv2.bitwise_not(mask)
-        # Nếu dùng Multi-level Otsu: quét tiếp lớp tối nhất để loại trừ bóng đổ / mặt khay
-        if method == "multi_otsu":
-            sub = gray[gray < th_std]
-            if len(sub) > 100:
-                th_sub, _ = cv2.threshold(sub, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                if mask.mean() / 255.0 > 0.35 and th_sub > 30:
-                    mask = (gray < th_sub).astype(np.uint8) * 255
+
+    stages = {"04_otsu_single": mask.copy()}
+
+    # Nếu dùng Multi-level Otsu: quét tiếp lớp tối nhất để loại trừ bóng đổ / mặt khay
+    if is_dark and method == "multi_otsu":
+        sub = gray[gray < th_std]
+        if len(sub) > 100:
+            th_sub, _ = cv2.threshold(sub, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            if mask.mean() / 255.0 > 0.35 and th_sub > 30:
+                mask = (gray < th_sub).astype(np.uint8) * 255
+                stages["04b_multi_otsu"] = mask.copy()
 
     raw = mask.copy()
     if morph_size > 1:
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_size, morph_size))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    stages["05_morphology"] = mask.copy()
 
     if auto_filter_ruler:
         k_disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
@@ -105,8 +114,9 @@ def segment_fish(gray, foreground="auto", morph_size=3, auto_filter_ruler=False,
                 mask = cv2.bitwise_and(mask, seed_dilated)
                 k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
                 mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_close)
+                stages["06_auto_ruler_filter"] = mask.copy()
 
-    return mask, {"04_threshold": raw, "05_morphology": mask}
+    return mask, stages
 
 
 def find_fish_contour(mask, min_area=100, allow_border=False):

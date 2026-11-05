@@ -18,6 +18,43 @@ from src.main import (
 )
 
 
+def show_algorithm_tabs(crop, blur, clahe, foreground, morph, auto_filter_ruler,
+                        min_area, allow_border, scale, offset, filter_type):
+    """4 tab riêng: Gaussian, Median (bộ lọc) và Otsu cổ điển, Otsu đa cấp (ngưỡng)."""
+    st.subheader("Xem từng thuật toán")
+    st.caption("Bấm vào từng tab để xem riêng từng thuật toán.")
+    tabs = st.tabs(["Gaussian", "Median", "Otsu cổ điển", "Otsu đa cấp"])
+
+    for tab, ftype, title in ((tabs[0], "gaussian", "Lọc Gaussian"), (tabs[1], "median", "Lọc trung vị (Median)")):
+        with tab:
+            gray, stages = preprocess(crop, blur, clahe, filter_type=ftype)
+            left, right = st.columns(2)
+            left.image(stages["01_gray"], caption="Ảnh xám gốc", width="stretch")
+            right.image(gray, caption=title, width="stretch")
+
+    gray, _ = preprocess(crop, blur, clahe, filter_type=filter_type)
+    for tab, method, title in ((tabs[2], "otsu", "Otsu cổ điển"), (tabs[3], "multi_otsu", "Otsu đa cấp")):
+        with tab:
+            st.caption(f"Dùng bộ lọc đang chọn ở thanh bên: {filter_type}.")
+            mask, _ = segment_fish(gray, foreground, morph, auto_filter_ruler=auto_filter_ruler, method=method)
+            st.image(mask, caption=f"Mặt nạ {title}", width="stretch")
+            try:
+                contour = find_fish_contour(mask, min_area, allow_border=allow_border)
+                if scale is None:
+                    st.info("Nhập tỷ lệ pixel/cm để xem số đo.")
+                    continue
+                contour = contour + np.array([[offset]], dtype=np.int32)
+                m, _ = measure_fish(contour, scale)
+                st.markdown(f"📏 **Dài:** `{m['length_cm']:.2f} cm` | **Rộng:** `{m['width_cm']:.2f} cm` | **Diện tích:** `{m['area_cm2']:.2f} cm²` | **Chu vi:** `{m['perimeter_cm']:.2f} cm`")
+            except (ValueError, cv2.error) as error:
+                st.warning(f"Chưa đo được bằng thuật toán này: {error}")
+
+
+def set_quick_state(key, val):
+    """Callback gán giá trị nhanh cho widget trước khi instantiate."""
+    st.session_state[key] = val
+
+
 def main():
     """Tải ảnh, chỉnh thông số và cập nhật kết quả ngay khi có thay đổi."""
     st.set_page_config(page_title="Đo kích thước cá Basa", page_icon="🐟", layout="wide")
@@ -81,6 +118,14 @@ def main():
                     coords.append(st.number_input(label, 0, width - 1 if i % 2 == 0 else height - 1, defaults[i], key=f"ref{i}_{image_key}"))
             reference_line = tuple(coords)
             reference_cm = st.number_input("Chiều dài thật của đoạn (cm)", min_value=0.01, value=10.0 if is_demo else None, step=0.1, key=f"cm_{image_key}")
+            st.button(
+                "⚡ Áp dụng nhanh thước chuẩn (10 cm)",
+                key=f"quick_10_{image_key}",
+                on_click=set_quick_state,
+                args=(f"cm_{image_key}", 10.0),
+                use_container_width=True,
+                help="Tự động điền 10 cm để xem ngay kết quả đo mà không cần gõ phím"
+            )
             if reference_cm is not None:
                 try:
                     scale = calibrate_scale(reference_line, reference_cm)
@@ -88,21 +133,48 @@ def main():
                     st.error(str(error))
         else:
             scale = st.number_input("Số pixel trên 1 cm", min_value=0.01, value=20.0 if is_demo else None, step=0.1, key=f"scale_{image_key}")
+            st.button(
+                "⚡ Áp dụng nhanh tỷ lệ chuẩn (10 px/cm)",
+                key=f"quick_scale_{image_key}",
+                on_click=set_quick_state,
+                args=(f"scale_{image_key}", 10.0),
+                use_container_width=True,
+                help="Tự động điền 10 px/cm để xem ngay kết quả đo"
+            )
             st.caption("Chỉ dùng tỷ lệ cũ nếu camera, độ phân giải và khoảng cách đo không đổi.")
 
-        with st.expander("Tinh chỉnh phân đoạn"):
-            method_name = st.selectbox("Phương pháp phân ngưỡng", ["Otsu đa cấp (Multi-level Otsu - Khuyên dùng)", "Otsu cổ điển (Single Otsu)"])
-            threshold_method = "multi_otsu" if "Multi-level" in method_name else "otsu"
+        st.header("4. Thuật toán xử lý")
+        filter_options = ["Median (Lọc trung vị - Tối ưu cho cá thật)", "Gaussian (Lọc Gauss)"]
+        filter_idx = 1 if is_demo else 0
+        filter_choice = st.selectbox(
+            "Bộ lọc khử nhiễu",
+            filter_options,
+            index=filter_idx,
+            key=f"filter_{image_key}",
+            help="Median khử nhiễu và bảo toàn sắc nét đường biên cá; Gaussian làm mờ mịn toàn bộ."
+        )
+        filter_type = "median" if "Median" in filter_choice else "gaussian"
+
+        method_options = ["Otsu đa cấp (Multi-level Otsu - Tối ưu)", "Otsu cổ điển (Single Otsu)"]
+        method_choice = st.selectbox(
+            "Phương pháp phân ngưỡng",
+            method_options,
+            index=0,
+            key=f"method_{image_key}",
+            help="Multi-level Otsu tách sạch bóng đổ và khay nền xám; Otsu cổ điển chỉ dùng 1 ngưỡng."
+        )
+        threshold_method = "multi_otsu" if "Multi-level" in method_choice else "otsu"
+
+        with st.expander("⚙️ Tinh chỉnh thông số nâng cao", expanded=False):
             foreground_name = st.selectbox("Màu cá so với nền", ["Tự động", "Cá tối hơn nền", "Cá sáng hơn nền"])
             foreground = {"Tự động": "auto", "Cá tối hơn nền": "dark", "Cá sáng hơn nền": "light"}[foreground_name]
-            filter_choice = st.selectbox("Bộ lọc khử nhiễu", ["Gaussian (Lọc Gauss)", "Median (Lọc trung vị)"])
-            filter_type = "median" if "Median" in filter_choice else "gaussian"
             blur = st.select_slider("Kích thước bộ lọc (1 = tắt)", [1, 3, 5, 7, 9, 11], value=5)
             morph = st.select_slider("Lọc hình thái (1 = tắt)", [1, 3, 5, 7, 9], value=3)
             clahe = st.checkbox("Tăng tương phản CLAHE")
             min_area = st.number_input("Diện tích tối thiểu (pixel²)", min_value=1, value=100)
             auto_filter_ruler = st.checkbox("Tự động loại bỏ thước kẻ dính liền", value=True, help="Tự động phát hiện và ngắt dải thước kẻ dính vào thân cá")
             allow_border = st.checkbox("Cho phép cá chạm viền ảnh", value=True, help="Bật nếu đuôi hoặc mõm cá nằm sát mép ảnh/ROI")
+
         show_debug = st.checkbox("Xem ảnh trung gian", value=True)
 
     if is_demo:
@@ -133,18 +205,41 @@ def main():
         st.subheader("Phân đoạn cá")
         st.image(mask, caption="Cá cần có màu trắng, nền màu đen.", width="stretch")
     if show_debug:
-        with st.expander("Các bước xử lý ảnh", expanded=False):
-            labels = ["Ảnh xám", "Tương phản", "Gaussian", "Ngưỡng Otsu", "Morphology"]
+        with st.expander("Các bước xử lý ảnh (Chi tiết từng bước thuật toán)", expanded=True):
+            friendly_names = {
+                "01_gray": "1. Ảnh xám",
+                "02_contrast": "2. Tương phản (CLAHE)",
+                "03_gaussian_blur": "3. Lọc Gaussian",
+                "03_median_blur": "3. Lọc trung vị (Median)",
+                "03_no_blur": "3. Không làm mờ",
+                "04_threshold": "4. Ngưỡng Otsu",
+                "04_otsu_single": "4. Otsu Cấp 1 (Sơ bộ)" if "04b_multi_otsu" in stages else "4. Ngưỡng Otsu",
+                "04b_multi_otsu": "5. Otsu Cấp 2 (Multi-level khử bóng)",
+                "05_morphology": "6. Lọc hình thái (Morphology)" if "04b_multi_otsu" in stages else "5. Lọc hình thái (Morphology)",
+                "06_auto_ruler_filter": "7. Tách thước kẻ dính liền" if "04b_multi_otsu" in stages else "6. Tách thước kẻ dính liền",
+            }
+            labels = [friendly_names.get(k, k) for k in stages.keys()]
             tabs = st.tabs(labels)
-            for tab, label, stage in zip(tabs, labels, stages.values()):
+            for tab, (stage_key, stage_img) in zip(tabs, stages.items()):
+                title = friendly_names.get(stage_key, stage_key)
                 with tab:
-                    st.image(stage, caption=label, width="stretch")
+                    st.image(stage_img, caption=title, width="stretch")
+
+    show_algorithm_tabs(crop, blur, clahe, foreground, morph, auto_filter_ruler,
+                        min_area, allow_border, scale, (x0, y0), filter_type)
 
     try:
         contour = find_fish_contour(mask, min_area, allow_border=allow_border)
         contour += np.array([[[x0, y0]]], dtype=np.int32)
         if scale is None:
-            st.info("Nhập chiều dài thật của đoạn tham chiếu hoặc tỷ lệ pixel/cm ở thanh bên để nhận số đo cm.")
+            st.info("👉 Bạn chưa nhập chiều dài tham chiếu để quy đổi kích thước sang centimet.")
+            st.button(
+                "⚡ Nhấn vào đây để áp dụng nhanh thước chuẩn 10 cm (Xem kết quả đo ngay)",
+                key=f"quick_main_{image_key}",
+                on_click=set_quick_state,
+                args=(f"cm_{image_key}", 10.0),
+                use_container_width=True
+            )
             return
         measurements, box = measure_fish(contour, scale)
         result = draw_result(image, contour, box, measurements, reference_line)
