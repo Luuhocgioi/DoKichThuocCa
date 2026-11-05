@@ -58,8 +58,8 @@ def segment_fish(gray, foreground="auto", morph_size=3):
     return mask, {"04_threshold": raw, "05_morphology": mask}
 
 
-def find_fish_contour(mask, min_area=100):
-    """Lấy contour ngoài lớn nhất; báo lỗi nếu quá nhỏ hoặc bị cắt ở viền."""
+def find_fish_contour(mask, min_area=100, allow_border=False):
+    """Lấy contour ngoài lớn nhất; báo lỗi nếu quá nhỏ hoặc bị cắt ở viền (trừ khi cho phép)."""
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         raise ValueError("Không tìm thấy cá. Kiểm tra ảnh ngưỡng và màu nền.")
@@ -67,7 +67,7 @@ def find_fish_contour(mask, min_area=100):
     if cv2.contourArea(contour) < min_area:
         raise ValueError("Vùng tìm được quá nhỏ. Kiểm tra phân đoạn hoặc --min-area.")
     x, y, w, h = cv2.boundingRect(contour)
-    if x == 0 or y == 0 or x + w >= mask.shape[1] or y + h >= mask.shape[0]:
+    if not allow_border and (x == 0 or y == 0 or x + w >= mask.shape[1] or y + h >= mask.shape[0]):
         raise ValueError("Contour chạm viền ảnh/ROI: hãy chừa nền quanh toàn bộ cá hoặc sửa phân đoạn.")
     return contour
 
@@ -178,7 +178,7 @@ def process_image(path, args, output_dir):
         save_image(output_dir / "debug" / "00_roi.png", crop)
         for name, stage in stages.items():
             save_image(output_dir / "debug" / f"{name}.png", stage)
-    contour = find_fish_contour(mask, args.min_area)
+    contour = find_fish_contour(mask, args.min_area, getattr(args, 'allow_border', False))
     contour = contour + np.array([[[x, y]]], dtype=np.int32)
     measurements, box = measure_fish(contour, scale)
     result = draw_result(image, contour, box, measurements, reference_line)
@@ -211,6 +211,7 @@ def main():
     parser.add_argument("--blur", type=int, default=5, help="Kernel Gaussian lẻ; 1 = tắt")
     parser.add_argument("--morph", type=int, default=3, help="Kernel morphology lẻ; 1 = tắt")
     parser.add_argument("--clahe", action="store_true", help="Bật cân bằng tương phản cục bộ")
+    parser.add_argument("--allow-border", action="store_true", help="Cho phép contour chạm viền ảnh")
     parser.add_argument("--min-area", type=float, default=100, help="Diện tích nhỏ nhất (pixel vuông)")
     parser.add_argument("--debug", action="store_true", help="Lưu ảnh trung gian")
     parser.add_argument("--show", action="store_true", help="Hiển thị ảnh bằng cửa sổ OpenCV")
