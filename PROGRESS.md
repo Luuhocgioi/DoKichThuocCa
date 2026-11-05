@@ -1,12 +1,16 @@
 # Tiến trình đồ án
 
-- Ngày cập nhật gần nhất: 2026-10-30 (Asia/Bangkok).
+- Ngày cập nhật gần nhất: 2026-11-05 (Asia/Bangkok).
 - Trạng thái ban đầu: **Chưa bắt đầu**.
 - Trạng thái hiện tại: **Hoàn thành bản triển khai giai đoạn 1; chờ kiểm chứng trên ảnh cá thật**.
 - Cập nhật cùng ngày: đã bổ sung giao diện Streamlit tải ảnh theo yêu cầu mới.
 - Khôi phục ngày 2026-10-30 sau khi người dùng xóa dự án: lấy lại 15 file từ commit 46d5597, giữ nguyên PROMPT.md; không đổi nhánh hoặc ghi đè lịch sử Git hiện tại.
 
 ## Đã hoàn thành
+- [x] Chỉnh 38 tiêu đề chương/mục/phần căn trái, thụt lề 0 theo yêu cầu mới; xuất hai bản BaoCao_XuLyAnh_NhanDang_CanTrai.docx/pdf. File gốc bị khóa nên lưu bản mới. Giữ bìa và chú thích hình/bảng căn giữa; kiểm tra font PDF 13/15 và vị trí tiêu đề DOCX.
+- [x] Ngày 2026-11-05: tạo báo cáo học thuật PDF và DOCX 25 trang trong baocao/, từ cùng nội dung Markdown, có mục lục tự động và danh mục hình/bảng; thông tin bìa để trống theo yêu cầu.
+- [x] Kiểm tra khổ A4, lề 3/2/2,5/2,5 cm; PDF chỉ dùng Times New Roman cỡ 13/15. Dựng trang bằng Word do renderer mặc định thiếu LibreOffice, kiểm tra ảnh từng trang.
+- [x] Kiểm kê dữ liệu mới: 445 JPG, 118 mask PNG cùng tên và kích thước tương ứng; chạy lại test_all_fish.py với hai chế độ và 7 kiểm thử phần mềm.
 - [x] Lưu nguyên nội dung yêu cầu vào PROMPT.md.
 - [x] Khởi tạo data/, src/, results/, tests/, requirements.txt, README.md, .gitignore.
 - [x] Viết load_image, preprocess, segment_fish, find_fish_contour, calibrate_scale, measure_fish, draw_result, main.
@@ -30,6 +34,7 @@
 - [x] Xem trực quan ảnh kết quả đã tạo lại; kiểm tra endpoint sức khỏe Streamlit cổng 8501 trả về `ok`.
 
 ## Đang làm dở
+Phiên 2026-11-05: kiểm tra thư viện OpenCV/NumPy/Streamlit, khởi động ứng dụng tại http://localhost:8501; endpoint sức khỏe trả về `ok`. Không thay đổi thuật toán trong phiên chạy ứng dụng.
 Không có thay đổi mã nguồn đang làm dở. Chưa có dữ liệu để đánh giá độ chính xác thực tế.
 Các file khôi phục đang nằm trong working tree và chưa được commit/push vào nhánh hiện tại. Giữ nguyên test.txt có sẵn của người dùng.
 
@@ -57,6 +62,7 @@ Các file khôi phục đang nằm trong working tree và chưa được commit/
 - Khởi động máy chủ Streamlit trên 127.0.0.1:8501; có thể chạy lại bằng `python -m streamlit run app.py`.
 
 ## Vấn đề còn tồn đọng
+- Cập nhật 2026-11-05: đã có tập ảnh cá và mask trong data/train (thay cho trạng thái chưa có dữ liệu trước đây), nhưng chưa xác minh nguồn/giấy phép/loài và chưa có bảng số đo thật. Đánh giá linh hoạt: 445/445 chạy được, IoU 50,42%, Dice 64,33% trên 118 cặp. Chặn viền: 101/445 chạy được, IoU 60,12%, Dice 75,01% trên 29 cặp được giữ; không so sánh trực tiếp điểm trung bình trên hai tập con như một cải thiện độ chính xác. Log và CSV lưu baocao/qa/.
 - Rà soát theo câu hỏi độ tin cậy: 7/7 kiểm thử vẫn đạt nhưng chỉ xác nhận hình học tổng hợp và luồng giao diện, không chứng minh độ chính xác trên cá thật.
 - Thử ảnh tổng hợp có cá dạng ellipse và vật tham chiếu tối lớn hơn: thuật toán chọn nhầm vật tham chiếu (bbox x=100, y=400, rộng=701, cao=61 pixel). Đây là giới hạn của chọn contour lớn nhất; cần cô lập ROI hoặc cải thiện chọn vùng trước khi coi phép đo là đáng tin.
 - Chưa có ảnh cá thật, kích thước tham chiếu và số đo tay để tính sai số.
