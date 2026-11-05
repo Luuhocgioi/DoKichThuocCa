@@ -1,8 +1,7 @@
 # Tiến trình đồ án
 
-- Ngày cập nhật gần nhất: 2026-10-30 (Asia/Bangkok).
-- Trạng thái ban đầu: **Chưa bắt đầu**.
-- Trạng thái hiện tại: **Hoàn thành bản triển khai giai đoạn 1; chờ kiểm chứng trên ảnh cá thật**.
+- Ngày cập nhật gần nhất: 2026-11-05 (Asia/Bangkok).
+- Trạng thái hiện tại: **Đã tích hợp Median Filter, Multi-level Otsu, nút bấm 1-click áp dụng thước chuẩn 10cm, hoàn thiện so sánh đối đầu 4 phương pháp trên 118 Ground Truth**.
 - Cập nhật cùng ngày: đã bổ sung giao diện Streamlit tải ảnh theo yêu cầu mới.
 - Khôi phục ngày 2026-10-30 sau khi người dùng xóa dự án: lấy lại 15 file từ commit 46d5597, giữ nguyên PROMPT.md; không đổi nhánh hoặc ghi đè lịch sử Git hiện tại.
 
