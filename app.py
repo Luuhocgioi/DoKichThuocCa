@@ -9,6 +9,9 @@ import cv2
 import numpy as np
 import streamlit as st
 
+import importlib
+import src.main
+importlib.reload(src.main)
 from src.main import (
     calibrate_scale, draw_result, find_fish_contour,
     measure_fish, preprocess, segment_fish,
@@ -94,6 +97,8 @@ def main():
             morph = st.select_slider("Lọc hình thái (1 = tắt)", [1, 3, 5, 7, 9], value=3)
             clahe = st.checkbox("Tăng tương phản CLAHE")
             min_area = st.number_input("Diện tích tối thiểu (pixel²)", min_value=1, value=100)
+            auto_filter_ruler = st.checkbox("Tự động loại bỏ thước kẻ dính liền", value=True, help="Tự động phát hiện và ngắt dải thước kẻ dính vào thân cá")
+            allow_border = st.checkbox("Cho phép cá chạm viền ảnh", value=True, help="Bật nếu đuôi hoặc mõm cá nằm sát mép ảnh/ROI")
         show_debug = st.checkbox("Xem ảnh trung gian", value=True)
 
     if is_demo:
@@ -118,7 +123,7 @@ def main():
 
     crop = image[y0:y1, x0:x1]
     gray, stages = preprocess(crop, blur, clahe)
-    mask, segment_stages = segment_fish(gray, foreground, morph)
+    mask, segment_stages = segment_fish(gray, foreground, morph, auto_filter_ruler=auto_filter_ruler)
     stages.update(segment_stages)
     with right:
         st.subheader("Phân đoạn cá")
@@ -132,7 +137,7 @@ def main():
                     st.image(stage, caption=label, width="stretch")
 
     try:
-        contour = find_fish_contour(mask, min_area)
+        contour = find_fish_contour(mask, min_area, allow_border=allow_border)
         contour += np.array([[[x0, y0]]], dtype=np.int32)
         if scale is None:
             st.info("Nhập chiều dài thật của đoạn tham chiếu hoặc tỷ lệ pixel/cm ở thanh bên để nhận số đo cm.")
