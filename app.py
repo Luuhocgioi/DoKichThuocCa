@@ -91,6 +91,8 @@ def main():
             st.caption("Chỉ dùng tỷ lệ cũ nếu camera, độ phân giải và khoảng cách đo không đổi.")
 
         with st.expander("Tinh chỉnh phân đoạn"):
+            method_name = st.selectbox("Phương pháp phân ngưỡng", ["Otsu đa cấp (Multi-level Otsu - Khuyên dùng)", "Otsu cổ điển (Single Otsu)"])
+            threshold_method = "multi_otsu" if "Multi-level" in method_name else "otsu"
             foreground_name = st.selectbox("Màu cá so với nền", ["Tự động", "Cá tối hơn nền", "Cá sáng hơn nền"])
             foreground = {"Tự động": "auto", "Cá tối hơn nền": "dark", "Cá sáng hơn nền": "light"}[foreground_name]
             filter_choice = st.selectbox("Bộ lọc khử nhiễu", ["Gaussian (Lọc Gauss)", "Median (Lọc trung vị)"])
@@ -125,7 +127,7 @@ def main():
 
     crop = image[y0:y1, x0:x1]
     gray, stages = preprocess(crop, blur, clahe, filter_type=filter_type)
-    mask, segment_stages = segment_fish(gray, foreground, morph, auto_filter_ruler=auto_filter_ruler)
+    mask, segment_stages = segment_fish(gray, foreground, morph, auto_filter_ruler=auto_filter_ruler, method=threshold_method)
     stages.update(segment_stages)
     with right:
         st.subheader("Phân đoạn cá")

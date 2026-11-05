@@ -161,7 +161,7 @@ def run_evaluation(args):
         try:
             # Chạy pipeline xử lý ảnh
             gray, _ = preprocess(img, blur_size=args.blur, clahe=args.clahe, filter_type=args.filter_type)
-            mask, _ = segment_fish(gray, foreground=args.foreground, morph_size=args.morph, auto_filter_ruler=not args.no_auto_ruler)
+            mask, _ = segment_fish(gray, foreground=args.foreground, morph_size=args.morph, auto_filter_ruler=not args.no_auto_ruler, method=args.threshold_method)
             contour = find_contour_flexible(mask, min_area=args.min_area, allow_border=not args.strict)
 
             # Đo kích thước hình học
@@ -283,6 +283,7 @@ def main():
     parser.add_argument("--no-auto-ruler", action="store_true", help="Tắt tính năng tự động loại thước kẻ")
     parser.add_argument("--strict", action="store_true", help="Bắt buộc không được chạm viền (mặc định: linh hoạt)")
     parser.add_argument("--foreground", default="auto", choices=["auto", "dark", "light"], help="Cực tính cá so với nền")
+    parser.add_argument("--threshold-method", default="multi_otsu", choices=["multi_otsu", "otsu"], help="Phương pháp phân ngưỡng (mặc định: multi_otsu)")
     parser.add_argument("--filter-type", default="median", choices=["median", "gaussian"], help="Loại bộ lọc làm mịn (mặc định: median)")
     parser.add_argument("--blur", type=int, default=5, help="Kích thước Gaussian blur (mặc định: 5)")
     parser.add_argument("--morph", type=int, default=3, help="Kích thước Morphology (mặc định: 3)")

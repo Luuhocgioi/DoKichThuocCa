@@ -51,9 +51,9 @@ def preprocess(image, blur_size=5, clahe=False, filter_type="gaussian"):
     return blurred, {"01_gray": gray, "02_contrast": enhanced, "03_blur": blurred}
 
 
-def segment_fish(gray, foreground="auto", morph_size=3, auto_filter_ruler=False):
-    """Otsu tách sáng/tối; tự động nhận diện cực tính và tùy chọn lọc thước kẻ."""
-    _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+def segment_fish(gray, foreground="auto", morph_size=3, auto_filter_ruler=False, method="multi_otsu"):
+    """Tách sáng/tối bằng Otsu đa cấp (multi_otsu) hoặc Otsu cổ điển (otsu)."""
+    th_std, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     border = np.concatenate((mask[0], mask[-1], mask[:, 0], mask[:, -1]))
     h, w = gray.shape
     center = gray[h // 4 : 3 * h // 4, w // 4 : 3 * w // 4]
@@ -62,6 +62,14 @@ def segment_fish(gray, foreground="auto", morph_size=3, auto_filter_ruler=False)
     )
     if is_dark:
         mask = cv2.bitwise_not(mask)
+        # Nếu dùng Multi-level Otsu: quét tiếp lớp tối nhất để loại trừ bóng đổ / mặt khay
+        if method == "multi_otsu":
+            sub = gray[gray < th_std]
+            if len(sub) > 100:
+                th_sub, _ = cv2.threshold(sub, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                if mask.mean() / 255.0 > 0.35 and th_sub > 30:
+                    mask = (gray < th_sub).astype(np.uint8) * 255
+
     raw = mask.copy()
     if morph_size > 1:
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_size, morph_size))
@@ -69,7 +77,6 @@ def segment_fish(gray, foreground="auto", morph_size=3, auto_filter_ruler=False)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
     if auto_filter_ruler:
-        # Ngắt kết nối các cầu nối hẹp giữa thước và thân cá
         k_disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
         opened = cv2.morphologyEx(mask, cv2.MORPH_OPEN, k_disc)
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(opened)
@@ -82,7 +89,6 @@ def segment_fish(gray, foreground="auto", morph_size=3, auto_filter_ruler=False)
                 comp_h = stats[i, cv2.CC_STAT_HEIGHT]
                 cx, cy = centroids[i]
                 aspect = comp_w / max(comp_h, 1)
-                # Bỏ qua dải thước kẻ có tỷ lệ dài/ngang lớn nằm ở mép
                 if aspect > 5.0 and comp_h < 50:
                     continue
                 dist_y = abs(cy - h / 2.0) / (h / 2.0)
@@ -217,7 +223,7 @@ def process_image(path, args, output_dir):
         raise ValueError("ROI không hợp lệ hoặc nằm ngoài ảnh.")
     crop = image[y:y + h, x:x + w]
     gray, stages = preprocess(crop, args.blur, args.clahe, getattr(args, 'filter_type', 'gaussian'))
-    mask, segment_stages = segment_fish(gray, args.foreground, args.morph, getattr(args, 'auto_filter_ruler', False))
+    mask, segment_stages = segment_fish(gray, args.foreground, args.morph, getattr(args, 'auto_filter_ruler', False), getattr(args, 'threshold_method', 'multi_otsu'))
     stages.update(segment_stages)
     if args.debug:
         save_image(output_dir / "debug" / "00_roi.png", crop)
@@ -257,6 +263,7 @@ def main():
     parser.add_argument("--blur", type=int, default=5, help="Kernel Gaussian lẻ; 1 = tắt")
     parser.add_argument("--morph", type=int, default=3, help="Kernel morphology lẻ; 1 = tắt")
     parser.add_argument("--clahe", action="store_true", help="Bật cân bằng tương phản cục bộ")
+    parser.add_argument("--threshold-method", default="multi_otsu", choices=["multi_otsu", "otsu"], help="Phương pháp phân ngưỡng (multi_otsu hoặc otsu)")
     parser.add_argument("--auto-filter-ruler", action="store_true", help="Tự động loại bỏ thước kẻ dính vào thân cá")
     parser.add_argument("--allow-border", action="store_true", help="Cho phép contour chạm viền ảnh")
     parser.add_argument("--min-area", type=float, default=100, help="Diện tích nhỏ nhất (pixel vuông)")
