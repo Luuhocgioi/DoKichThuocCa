@@ -93,7 +93,9 @@ def main():
         with st.expander("Tinh chỉnh phân đoạn"):
             foreground_name = st.selectbox("Màu cá so với nền", ["Tự động", "Cá tối hơn nền", "Cá sáng hơn nền"])
             foreground = {"Tự động": "auto", "Cá tối hơn nền": "dark", "Cá sáng hơn nền": "light"}[foreground_name]
-            blur = st.select_slider("Làm mờ Gaussian (1 = tắt)", [1, 3, 5, 7, 9, 11], value=5)
+            filter_choice = st.selectbox("Bộ lọc khử nhiễu", ["Gaussian (Lọc Gauss)", "Median (Lọc trung vị)"])
+            filter_type = "median" if "Median" in filter_choice else "gaussian"
+            blur = st.select_slider("Kích thước bộ lọc (1 = tắt)", [1, 3, 5, 7, 9, 11], value=5)
             morph = st.select_slider("Lọc hình thái (1 = tắt)", [1, 3, 5, 7, 9], value=3)
             clahe = st.checkbox("Tăng tương phản CLAHE")
             min_area = st.number_input("Diện tích tối thiểu (pixel²)", min_value=1, value=100)
@@ -122,7 +124,7 @@ def main():
         return
 
     crop = image[y0:y1, x0:x1]
-    gray, stages = preprocess(crop, blur, clahe)
+    gray, stages = preprocess(crop, blur, clahe, filter_type=filter_type)
     mask, segment_stages = segment_fish(gray, foreground, morph, auto_filter_ruler=auto_filter_ruler)
     stages.update(segment_stages)
     with right:

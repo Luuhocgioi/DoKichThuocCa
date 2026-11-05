@@ -36,11 +36,18 @@ def save_image(path, image):
     encoded.tofile(str(path))
 
 
-def preprocess(image, blur_size=5, clahe=False):
-    """Chuyển xám, tùy chọn CLAHE, rồi Gaussian để giảm nhiễu."""
+def preprocess(image, blur_size=5, clahe=False, filter_type="gaussian"):
+    """Chuyển xám, tùy chọn CLAHE, rồi lọc làm mịn (Gaussian hoặc Median) để giảm nhiễu."""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     enhanced = cv2.createCLAHE(2.0, (8, 8)).apply(gray) if clahe else gray.copy()
-    blurred = cv2.GaussianBlur(enhanced, (blur_size, blur_size), 0) if blur_size > 1 else enhanced.copy()
+    if blur_size > 1:
+        k = blur_size if blur_size % 2 == 1 else blur_size + 1
+        if str(filter_type).lower() == "median":
+            blurred = cv2.medianBlur(enhanced, k)
+        else:
+            blurred = cv2.GaussianBlur(enhanced, (k, k), 0)
+    else:
+        blurred = enhanced.copy()
     return blurred, {"01_gray": gray, "02_contrast": enhanced, "03_blur": blurred}
 
 
@@ -209,7 +216,7 @@ def process_image(path, args, output_dir):
     if x < 0 or y < 0 or w <= 0 or h <= 0 or x + w > image.shape[1] or y + h > image.shape[0]:
         raise ValueError("ROI không hợp lệ hoặc nằm ngoài ảnh.")
     crop = image[y:y + h, x:x + w]
-    gray, stages = preprocess(crop, args.blur, args.clahe)
+    gray, stages = preprocess(crop, args.blur, args.clahe, getattr(args, 'filter_type', 'gaussian'))
     mask, segment_stages = segment_fish(gray, args.foreground, args.morph, getattr(args, 'auto_filter_ruler', False))
     stages.update(segment_stages)
     if args.debug:
@@ -246,6 +253,7 @@ def main():
     parser.add_argument("--reference-cm", type=float, help="Chiều dài thật của đoạn tham chiếu (cm)")
     parser.add_argument("--roi", nargs=4, type=int, metavar=("X", "Y", "W", "H"), help="Vùng chỉ chứa cá")
     parser.add_argument("--foreground", choices=["auto", "dark", "light"], default="auto")
+    parser.add_argument("--filter-type", default="gaussian", choices=["gaussian", "median"], help="Loại bộ lọc làm mịn (gaussian hoặc median)")
     parser.add_argument("--blur", type=int, default=5, help="Kernel Gaussian lẻ; 1 = tắt")
     parser.add_argument("--morph", type=int, default=3, help="Kernel morphology lẻ; 1 = tắt")
     parser.add_argument("--clahe", action="store_true", help="Bật cân bằng tương phản cục bộ")
