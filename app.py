@@ -117,14 +117,22 @@ def main():
                 with columns[i % 2]:
                     coords.append(st.number_input(label, 0, width - 1 if i % 2 == 0 else height - 1, defaults[i], key=f"ref{i}_{image_key}"))
             reference_line = tuple(coords)
-            reference_cm = st.number_input("Chiều dài thật của đoạn (cm)", min_value=0.01, value=10.0 if is_demo else None, step=0.1, key=f"cm_{image_key}")
+            reference_cm = st.number_input(
+                "Chiều dài thật của đoạn (cm)",
+                min_value=0.01,
+                value=10.0 if is_demo else None,
+                step=0.1,
+                key=f"cm_{image_key}",
+                help="Gõ số rồi nhấn phím ENTER trên bàn phím để áp dụng"
+            )
+            st.caption("💡 *Mẹo: Gõ số xong hãy nhấn phím **Enter** (hoặc bấm nút 20 cm bên dưới)*")
             st.button(
-                "⚡ Áp dụng nhanh thước chuẩn (10 cm)",
-                key=f"quick_10_{image_key}",
+                "⚡ Áp dụng nhanh thước chuẩn (20 cm)",
+                key=f"quick_20_{image_key}",
                 on_click=set_quick_state,
-                args=(f"cm_{image_key}", 10.0),
+                args=(f"cm_{image_key}", 20.0),
                 use_container_width=True,
-                help="Tự động điền 10 cm để xem ngay kết quả đo mà không cần gõ phím"
+                help="Tự động điền 20 cm để xem ngay kết quả đo mà không cần gõ phím"
             )
             if reference_cm is not None:
                 try:
@@ -234,10 +242,10 @@ def main():
         if scale is None:
             st.info("👉 Bạn chưa nhập chiều dài tham chiếu để quy đổi kích thước sang centimet.")
             st.button(
-                "⚡ Nhấn vào đây để áp dụng nhanh thước chuẩn 10 cm (Xem kết quả đo ngay)",
+                "⚡ Nhấn vào đây để áp dụng nhanh thước chuẩn 20 cm (Xem kết quả đo ngay)",
                 key=f"quick_main_{image_key}",
                 on_click=set_quick_state,
-                args=(f"cm_{image_key}", 10.0),
+                args=(f"cm_{image_key}", 20.0),
                 use_container_width=True
             )
             return
